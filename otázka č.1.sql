@@ -47,6 +47,7 @@ SELECT
 	cp.value,
 	cp.payroll_year,
 	cp.payroll_quarter,
+	cp.calculation_code,
 	cpib.name 
 FROM czechia_payroll cp 
 LEFT JOIN czechia_payroll_industry_branch cpib 
@@ -54,7 +55,8 @@ ON cp.industry_branch_code = cpib.code
 WHERE 
 	value_type_code = 5958 AND 
 	value IS NOT NULL AND 
-	industry_branch_code IS NOT NULL 
+	industry_branch_code IS NOT NULL AND 
+	calculation_code = 100
 ORDER BY 
 	cp.payroll_year;
 
@@ -64,6 +66,7 @@ ORDER BY
 SELECT 
 	cp.payroll_year,
 	cpib.name,
+	cp.calculation_code,
 	AVG(cp.value) AS average
 FROM czechia_payroll cp 
 LEFT JOIN czechia_payroll_industry_branch cpib 
@@ -71,7 +74,8 @@ ON cp.industry_branch_code = cpib.code
 WHERE 
 	value_type_code = 5958 AND 
 	value IS NOT NULL AND 
-	industry_branch_code IS NOT NULL
+	industry_branch_code IS NOT NULL AND 
+	calculation_code = 100
 GROUP BY 
 	cpib.name,
 	cp.payroll_year 
@@ -124,6 +128,7 @@ SELECT
 	cp.value_type_code,
 	cp.payroll_year,
 	cp.payroll_quarter,
+	cp.calculation_code,
 	cpib.name 
 FROM czechia_payroll cp 
 LEFT JOIN czechia_payroll_industry_branch cpib 
@@ -133,12 +138,15 @@ WHERE
 	value IS NOT NULL AND 
 	industry_branch_code IS NOT NULL AND 
 	industry_branch_code = 'B' AND 
-	payroll_year = 2020
+	payroll_year = 2020 AND 
+	calculation_code = 100
 ORDER BY 
 	cp.payroll_year;
 
 
--- zjišťuji proč mám dvojí hodnoty - v reportu budu uvažovat s průměrnými hodnotami
+-- zjišťuji proč mám dvojí hodnoty - v tabulce je sloupec calculation code, který obsahuje údaje fyzické a přepočtené
+-- v reportu vycházím z hodnot fyzických
+-- upravuji SQL dotazy pro výstup
 
 SELECT *
 FROM czechia_payroll cp 
