@@ -3,47 +3,74 @@
 
 -- informace o potravinách
 
-SELECT 
-	*,
+SELECT
+	*
+FROM czechia_price cp 
+LEFT JOIN czechia_price_category cpc 
+ON cp.category_code = cpc.code
+WHERE 
+	cp.region_code IS NULL
+GROUP BY 
+	cpc.name,
+	cp.date_from 
+ORDER BY 
+	cpc.name;
+
+-- průměr
+
+
+SELECT
+	cp.value,
+	cpc.name,
+	ROUND(AVG(value), 1) AS average_potraviny,
 	EXTRACT(YEAR FROM cp.date_from) AS YEAR
 FROM czechia_price cp 
 LEFT JOIN czechia_price_category cpc 
 ON cp.category_code = cpc.code
+WHERE 
+	cp.region_code IS NULL 
 GROUP BY 
-	cpc.name,
-	YEAR 
-ORDER BY
-	cpc.name,
-	YEAR;
+	cpc.name, YEAR
+ORDER BY 
+	cpc.name, YEAR;
+
 
 -- informace o mzdách
 
 
 SELECT 
-	cp.value,
 	cp.payroll_year,
-	cp.payroll_quarter,
-	cpib.name 
+	cpib.name,
+	cp.calculation_code,
+	AVG(cp.value) AS average_mzdy
 FROM czechia_payroll cp 
 LEFT JOIN czechia_payroll_industry_branch cpib 
 ON cp.industry_branch_code = cpib.code
 WHERE 
 	value_type_code = 5958 AND 
 	value IS NOT NULL AND 
-	industry_branch_code IS NOT NULL 
+	industry_branch_code IS NOT NULL AND 
+	calculation_code = 100
+GROUP BY 
+	cpib.name,
+	cp.payroll_year 
 ORDER BY 
+	cpib.name,
 	cp.payroll_year;
 
 
--- vytvoření tabulek
+-- vytvoření tabulek - potraviny
 
-CREATE TABLE t_tereza_jurakova_demo_price
+CREATE OR REPLACE TABLE t_tereza_jurakova_demo_price
 SELECT 
 	*,
+	ROUND(AVG(value), 1) AS average_potraviny,
 	EXTRACT(YEAR FROM cp.date_from) AS YEAR
 FROM czechia_price cp 
 LEFT JOIN czechia_price_category cpc 
 ON cp.category_code = cpc.code
+WHERE 
+	cp.region_code IS NULL
 GROUP BY 
 	cpc.name,
 	YEAR 
@@ -52,46 +79,64 @@ ORDER BY
 	YEAR;
 
 
+-- vytvoření tabulek - mzdy
+
+CREATE OR REPLACE TABLE t_tereza_jurakova_demo_mzdy
+SELECT 
+	cp.payroll_year,
+	cpib.name,
+	cp.calculation_code,
+	AVG(cp.value) AS average_mzdy
+FROM czechia_payroll cp 
+LEFT JOIN czechia_payroll_industry_branch cpib 
+ON cp.industry_branch_code = cpib.code
+WHERE 
+	value_type_code = 5958 AND 
+	value IS NOT NULL AND 
+	industry_branch_code IS NOT NULL AND 
+	calculation_code = 100
+GROUP BY 
+	cpib.name,
+	cp.payroll_year 
+ORDER BY 
+	cpib.name,
+	cp.payroll_year;
+
+
+
 -- propojení dvou tabulek
 
-SELECT DISTINCT 
+SELECT
 	cp.value AS price,
 	cp.category_code,
 	cp.name AS potraviny,
 	cp.price_unit,
-	cp2.value AS mzdy,
+	cp.average_potraviny,
+	cp2.average_mzdy,
 	cp2.payroll_year,
-	cp2.industry_branch_code,
-	cpib.name AS branch
+	cp2.name
 FROM t_tereza_jurakova_demo_price cp
-LEFT JOIN czechia_payroll cp2 
-ON cp.YEAR = cp2.payroll_year 
-LEFT JOIN czechia_payroll_industry_branch cpib 
-ON cp2.industry_branch_code = cpib.code
-WHERE 
-cp2.value_type_code = 5958;
+LEFT JOIN t_tereza_jurakova_demo_mzdy cp2
+ON cp.`YEAR` = cp2.payroll_year;
+
+
 
 
  -- vytvoření tabulky
 
 CREATE OR REPLACE TABLE t_tereza_jurakova_project_SQL_primary_final
-SELECT DISTINCT 
-	cp.value AS price,
-	cp.category_code,
+SELECT
 	cp.name AS potraviny,
 	cp.price_unit,
-	cp2.value AS mzdy,
+	cp.average_potraviny,
+	cp2.average_mzdy,
 	cp2.payroll_year,
-	cp2.industry_branch_code,
-	cpib.name AS branch
+	cp2.name
 FROM t_tereza_jurakova_demo_price cp
-LEFT JOIN czechia_payroll cp2 
-ON cp.YEAR = cp2.payroll_year 
-LEFT JOIN czechia_payroll_industry_branch cpib 
-ON cp2.industry_branch_code = cpib.code
-WHERE 
-cp2.value_type_code = 5958;
-
+LEFT JOIN t_tereza_jurakova_demo_mzdy cp2
+ON cp.`YEAR` = cp2.payroll_year;
+	
+	
   -- otázka
 
 
@@ -121,7 +166,8 @@ ORDER BY potraviny;
 
 SELECT 
 	payroll_year, 
-	min(mzdy)
+	name,
+	min(average_mzdy)
 FROM t_tereza_jurakova_project_sql_primary_final
 WHERE 
 	payroll_year IN ('2006', '2018')
@@ -134,14 +180,14 @@ GROUP BY
 
 SELECT DISTINCT 
 	cp1.potraviny,
-	cp1.price,
+	cp1.average_potraviny,
 	cp1.payroll_year,
 	cp2.min_mzdy
 FROM t_tereza_jurakova_project_sql_primary_final AS cp1
 LEFT JOIN 
 	(SELECT 
 		payroll_year, 
-		min(mzdy) AS min_mzdy
+		min(average_mzdy) AS min_mzdy
 	FROM t_tereza_jurakova_project_sql_primary_final
 	WHERE 
 		payroll_year IN ('2006', '2018')
@@ -157,21 +203,19 @@ ORDER BY
 
 		
  -- počty
- -- zapomněla jsem jednotky:( - aktualizuji tabulku
- -- vypočteno SQL dotazem, ale v reálu bych vzala kalkulačku
 
 SELECT DISTINCT 
 	cp1.potraviny,
-	cp1.price,
+	cp1.average_potraviny,
 	cp1.price_unit,
 	cp1.payroll_year,
 	cp2.min_mzdy,
-	round(cp2.min_mzdy/cp1.price,0) AS result
+	round(cp2.min_mzdy/cp1.average_potraviny,0) AS result
 FROM t_tereza_jurakova_project_sql_primary_final AS cp1
 JOIN 
 	(SELECT 
 		payroll_year, 
-		min(mzdy) AS min_mzdy
+		min(average_mzdy) AS min_mzdy
 	FROM t_tereza_jurakova_project_sql_primary_final
 	WHERE 
 		payroll_year IN ('2018')
@@ -188,16 +232,16 @@ ORDER BY
 
 SELECT DISTINCT 
 	cp1.potraviny,
-	cp1.price,
+	cp1.average_potraviny,
 	cp1.price_unit,
 	cp1.payroll_year,
 	cp2.min_mzdy,
-	round(cp2.min_mzdy/cp1.price,0) AS result
+	round(cp2.min_mzdy/cp1.average_potraviny,0) AS result
 FROM t_tereza_jurakova_project_sql_primary_final AS cp1
 JOIN 
 	(SELECT 
 		payroll_year, 
-		min(mzdy) AS min_mzdy
+		min(average_mzdy) AS min_mzdy
 	FROM t_tereza_jurakova_project_sql_primary_final
 	WHERE 
 		payroll_year IN ('2006')
@@ -216,16 +260,16 @@ ORDER BY
 
 SELECT DISTINCT 
 	cp1.potraviny,
-	cp1.price,
+	cp1.average_potraviny,
 	cp1.price_unit,
 	cp1.payroll_year,
 	cp2.min_mzdy,
-	round(cp2.min_mzdy/cp1.price,0) AS result
+	round(cp2.min_mzdy/cp1.average_potraviny,0) AS result
 FROM t_tereza_jurakova_project_sql_primary_final AS cp1
 JOIN 
 	(SELECT 
 		payroll_year, 
-		min(mzdy) AS min_mzdy
+		min(average_mzdy) AS min_mzdy
 	FROM t_tereza_jurakova_project_sql_primary_final
 	WHERE 
 		payroll_year IN ('2018')
@@ -243,16 +287,16 @@ ORDER BY
 
 SELECT DISTINCT 
 	cp1.potraviny,
-	cp1.price,
+	cp1.average_potraviny,
 	cp1.price_unit,
 	cp1.payroll_year,
 	cp2.min_mzdy,
-	round(cp2.min_mzdy/cp1.price,0) AS result
+	round(cp2.min_mzdy/cp1.average_potraviny,0) AS result
 FROM t_tereza_jurakova_project_sql_primary_final AS cp1
 JOIN 
 	(SELECT 
 		payroll_year, 
-		min(mzdy) AS min_mzdy
+		min(average_mzdy) AS min_mzdy
 	FROM t_tereza_jurakova_project_sql_primary_final
 	WHERE 
 		payroll_year IN ('2006')
