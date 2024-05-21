@@ -102,7 +102,7 @@ ON
 	cp.category_code = cpc.code
 WHERE 
 	cp.region_code IS NOT NULL AND 
-	cpc.name LIKE 'Banány%'
+	cpc.name LIKE 'Cukr%'
 GROUP BY 
 	cpc.name,
 	cp.region_code
@@ -246,12 +246,12 @@ SELECT
 	previous_year.previous_year,
 	CASE 
 		WHEN previous_year.previous_average = 0 THEN NULL 
-		ELSE round(((current_year.average - previous_year.previous_average)/previous_average)*100, 2)
+		ELSE round(((current_year.average - previous_year.previous_average)/previous_average)*100, 1)
 	END AS ratio
 FROM 
 	(SELECT
 		cpc.name,
-		ROUND(AVG(cp.value), 2) AS average,
+		ROUND(AVG(cp.value), 1) AS average,
 		EXTRACT(YEAR FROM cp.date_from) AS year
 	FROM 
 		czechia_price cp 
@@ -266,7 +266,7 @@ FROM
 	LEFT JOIN 
 		(SELECT
 			cpc.name,
-			ROUND(AVG(cp.value), 2) AS previous_average,
+			ROUND(AVG(cp.value), 1) AS previous_average,
 			EXTRACT(YEAR FROM cp.date_from) AS previous_year
 	FROM 
 		czechia_price cp 
@@ -281,4 +281,44 @@ FROM
 	ON 
 		current_year.name = previous_year.name AND 
 		current_year.year = previous_year.previous_year + 1;
+	
+	
+	
+	-- pomocí vytvořené tabulky
+	
+		SELECT 
+			current_year.potraviny,
+			current_year.average,
+			current_year.current_year,
+			previous_year.previous_average,
+			previous_year.previous_year,
+	CASE 
+		WHEN previous_year.previous_average = 0 THEN NULL 
+		ELSE round(((current_year.average - previous_year.previous_average)/previous_average)*100, 1)
+	END AS ratio
+FROM 
+	(SELECT
+		cp.potraviny,
+		cp.average_potraviny AS average,
+		cp.payroll_year AS current_year
+	FROM 
+		t_tereza_jurakova_project_sql_primary_final cp 
+	GROUP BY 
+		cp.potraviny,payroll_year
+	ORDER BY 
+		cp.potraviny,payroll_year) AS current_year
+	LEFT JOIN 
+		(SELECT
+			cp.potraviny,
+			cp.average_potraviny AS previous_average,
+			cp.payroll_year AS previous_year
+	FROM 
+		t_tereza_jurakova_project_sql_primary_final cp 
+	GROUP BY 
+		cp.potraviny, previous_year
+	ORDER BY 
+		cp.potraviny, previous_year) AS previous_year
+	ON 
+		current_year.potraviny = previous_year.potraviny AND 
+		current_year.current_year = previous_year.previous_year + 1;
 
