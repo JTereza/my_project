@@ -190,4 +190,13 @@ WHERE
 	value IS NOT NULL AND 
 	industry_branch_code IS NOT NULL AND 
 	industry_branch_code = 'K' AND 
-	payroll_year = 2018;
+	payroll_year = 2018 AND 
+	calculation_code = 100
+GROUP BY 
+	cp.value,
+	cp.value_type_code,
+	cp.industry_branch_code,
+	cp.payroll_year,
+	cp.payroll_quarter,
+	cpib.name;
+
