@@ -389,7 +389,6 @@ SELECT DISTINCT
 	WHERE 
 		cp.GDP IS NOT NULL)
 SELECT
-	country,
 	YEAR,
 	ratio_GDP,
 	name,
