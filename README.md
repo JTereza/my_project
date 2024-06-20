@@ -1,6 +1,7 @@
 # my_project Power Bi
 
 contact discord terka0517
+
 LinkedIn https://www.linkedin.com/in/tereza-juráková-3b8019a8/
 
 
